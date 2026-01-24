@@ -1,0 +1,56 @@
+/* assets/styles.css */
+.ball {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+}
+
+.ball:hover {
+    transform: scale(1.1);
+}
+
+.ball-fixed {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.kpi-card {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 5px solid #6366f1;
+    transition: transform 0.2s;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.status-badge {
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 12px;
+    color: white;
+    display: inline-block;
+    margin: 2px;
+}
+
+/* Estilos gerais */
+.stButton > button {
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
