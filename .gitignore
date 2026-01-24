@@ -1,0 +1,12 @@
+# Secrets
+.streamlit/secrets.toml
+.env
+.env.local
+
+# Dados
+data/
+logs/
+
+# Cache
+__pycache__/
+*.pyc
