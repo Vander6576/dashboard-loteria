@@ -29,24 +29,6 @@ IA: Google Generative AI & RapidAPI (DeepSeek)
 
 Dados: LoteriasCaixa-API
 
-📦 Como Instalar e Rodar
-Clone o repositório:
-
-Bash
-git clone https://github.com/seu-usuario/lotoanalytica-pro.git
-cd lotoanalytica-pro
-Instale as dependências:
-
-Bash
-pip install streamlit pandas requests plotly google-generativeai
-Configure suas chaves de API: No arquivo principal, insira suas credenciais:
-
-RAPID_API_KEY
-
-GEMINI_API_KEY
-
-Execute o App:
-
 Bash
 streamlit run app.py
 ⚖️ Metodologia Estatística
