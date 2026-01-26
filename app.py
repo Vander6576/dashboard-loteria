@@ -29,8 +29,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-# Exibir imagem de capa
-st.image("assets/capa.png", use_column_width=True)
 
 # ============================
 # PATHS (Cloud Safe)
