@@ -1,111 +1,130 @@
-# services/ai_engine.py - COM TRATAMENTO DE ERROS MELHORADO
+# services/ai_engine.py
+import os
 import requests
-import json
 from typing import Dict, Tuple, Optional
-from google import genai
+
 from config import settings
 
+
 class AIEngine:
-    """Motor de IA para análise de jogos"""
-    
+    """
+    Motor de IA para análise de jogos.
+    Preparado para Streamlit Cloud.
+    Fallback automático quando APIs falham.
+    """
+
     def __init__(self):
+        # Flags de disponibilidade
+        self.gemini_disponivel = False
+
+        # Gemini (import seguro)
         try:
-            self.client_gemini = genai.Client(api_key=settings.GEMINI_API_KEY)
-            self.gemini_disponivel = True
-        except:
+            from google import genai
+            api_key = os.getenv("GEMINI_API_KEY") or settings.GEMINI_API_KEY
+
+            if api_key:
+                self.client_gemini = genai.Client(api_key=api_key)
+                self.gemini_disponivel = True
+        except Exception:
             self.gemini_disponivel = False
-    
+
+    # =========================
+    # API PRINCIPAL
+    # =========================
     def analisar_concurso(self, dados_concurso: Dict) -> Tuple[str, str]:
         """
-        Analisa um concurso usando IA
-        Retorna: (análise, motor_utilizado)
+        Analisa um concurso usando IA.
+        Retorna: (texto_da_analise, motor_utilizado)
         """
+
         prompt = self._criar_prompt_analise(dados_concurso)
-        
-        # Tenta DeepSeek primeiro
-        try:
-            analise, motor = self._consultar_deepseek(prompt)
-            if analise and analise.strip():
+
+        # 1️⃣ DeepSeek (prioridade)
+        analise, motor = self._consultar_deepseek(prompt)
+        if analise:
+            return analise, motor
+
+        # 2️⃣ Gemini
+        if self.gemini_disponivel:
+            analise, motor = self._consultar_gemini(prompt)
+            if analise:
                 return analise, motor
-        except Exception as e:
-            print(f"Erro DeepSeek: {e}")
-        
-        # Tenta Gemini
-        try:
-            if self.gemini_disponivel:
-                analise, motor = self._consultar_gemini(prompt)
-                if analise and analise.strip():
-                    return analise, motor
-        except Exception as e:
-            print(f"Erro Gemini: {e}")
-        
-        # Fallback: análise local
+
+        # 3️⃣ Fallback local
         return self._analise_local(dados_concurso), "Análise Local"
-    
+
+    # =========================
+    # PROMPT
+    # =========================
     def _criar_prompt_analise(self, dados: Dict) -> str:
-        """Cria prompt estruturado para análise"""
         return f"""
-        ANALISTA ESPECIALIZADO EM LOTOFÁCIL - RESPOSTA TÉCNICA
-        
-        CONCURSO: {dados['concurso']}
-        
-        DADOS TÉCNICOS:
-        - Dezenas: {dados['dezenas']}
-        - Soma Total: {dados['soma']} (faixa ideal: 180-210)
-        - Repetição do anterior: {dados['repetidas']}/15 (média histórica: 8-10)
-        - Distribuição: {dados['dist']} (alvo: 5-5-5)
-        - Pares/Ímpares: {dados['pares']}/{15-dados['pares']} (equilíbrio: 6-9 a 9-6)
-        - Números na Moldura: {dados['moldura']}/15
-        - Números Primos: {dados['primos']}
-        
-        FORMATO DE RESPOSTA OBRIGATÓRIO:
-        1. DECISÃO: [ALTA PROBABILIDADE / PROBABILIDADE MÉDIA / BAIXA PROBABILIDADE]
-        2. ANÁLISE TÉCNICA: (máximo 3 linhas)
-        3. PADRÕES IDENTIFICADOS: (lista com •)
-        4. RECOMENDAÇÃO: (1 linha específica)
-        
-        Seja objetivo e técnico. Use apenas dados estatísticos.
-        """
-    
+ANALISTA ESPECIALIZADO EM LOTOFÁCIL – RESPOSTA TÉCNICA
+
+CONCURSO: {dados['concurso']}
+
+DADOS:
+- Dezenas: {dados['dezenas']}
+- Soma: {dados['soma']} (ideal 180–210)
+- Repetidas: {dados['repetidas']}/15 (ideal 8–10)
+- Distribuição: {dados['dist']} (ideal 5-5-5)
+- Pares: {dados['pares']}
+- Ímpares: {15 - dados['pares']}
+- Moldura: {dados['moldura']}
+- Primos: {dados['primos']}
+
+FORMATO OBRIGATÓRIO:
+1. DECISÃO:
+2. ANÁLISE TÉCNICA (máx. 3 linhas)
+3. PADRÕES IDENTIFICADOS (•)
+4. RECOMENDAÇÃO (1 linha)
+
+Seja técnico, direto e estatístico.
+"""
+
+    # =========================
+    # DEEPSEEK
+    # =========================
     def _consultar_deepseek(self, prompt: str) -> Tuple[Optional[str], str]:
-        """Consulta API DeepSeek via RapidAPI"""
+        api_key = os.getenv("RAPID_API_KEY") or settings.RAPID_API_KEY
+        api_host = os.getenv("RAPID_API_HOST") or settings.RAPID_API_HOST
+
+        if not api_key or not api_host:
+            return None, "DeepSeek (sem credenciais)"
+
         try:
-            headers = {
-                "x-rapidapi-key": settings.RAPID_API_KEY,
-                "x-rapidapi-host": settings.RAPID_API_HOST,
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "deepseek-chat",
-                "messages": [
-                    {"role": "system", "content": "Você é um analista estatístico especializado em loteria."},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 500
-            }
-            
             response = requests.post(
                 "https://deepseek-v31.p.rapidapi.com/chat/completions",
-                json=payload,
-                headers=headers,
-                timeout=20
+                headers={
+                    "x-rapidapi-key": api_key,
+                    "x-rapidapi-host": api_host,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [
+                        {"role": "system", "content": "Você é um analista estatístico de loteria."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "max_tokens": 500,
+                },
+                timeout=15,
             )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'choices' in data and len(data['choices']) > 0:
-                    return data['choices'][0]['message']['content'], "DeepSeek AI"
-            
-            return None, "DeepSeek (sem resposta)"
-            
+
+            if response.status_code != 200:
+                return None, f"DeepSeek ({response.status_code})"
+
+            data = response.json()
+            return data["choices"][0]["message"]["content"], "DeepSeek AI"
+
         except requests.exceptions.Timeout:
             return None, "DeepSeek (timeout)"
-        except Exception as e:
-            return None, f"DeepSeek (erro: {str(e)[:50]})"
-    
-    def _consultar_gemini(self, prompt: str) -> Tuple[str, str]:
-        """Consulta Google Gemini"""
+        except Exception:
+            return None, "DeepSeek (erro)"
+
+    # =========================
+    # GEMINI
+    # =========================
+    def _consultar_gemini(self, prompt: str) -> Tuple[Optional[str], str]:
         try:
             response = self.client_gemini.models.generate_content(
                 model="gemini-1.5-flash",
@@ -115,47 +134,53 @@ class AIEngine:
                     "top_p": 0.8,
                     "top_k": 40,
                     "max_output_tokens": 500,
-                }
+                },
             )
-            
-            if response and hasattr(response, 'text'):
-                return response.text, "Gemini AI"
-            else:
-                return "Resposta não disponível no momento.", "Gemini (sem resposta)"
-                
+
+            return response.text, "Gemini AI"
+
         except Exception as e:
-            error_msg = str(e)
-            if "quota" in error_msg.lower() or "limit" in error_msg.lower():
-                return "Serviço temporariamente indisponível devido a limitações de quota.", "Gemini (limite)"
-            elif "api key" in error_msg.lower():
-                return "Configuração de API necessária.", "Gemini (config)"
-            else:
-                return f"Serviço indisponível no momento: {error_msg[:100]}", "Gemini (erro)"
-    
+            msg = str(e).lower()
+            if "quota" in msg or "limit" in msg:
+                return None, "Gemini (quota)"
+            if "key" in msg:
+                return None, "Gemini (api key)"
+            return None, "Gemini (erro)"
+
+    # =========================
+    # FALLBACK LOCAL
+    # =========================
     def _analise_local(self, dados: Dict) -> str:
-        """Análise local quando as APIs falham"""
-        soma = dados['soma']
-        repetidas = dados['repetidas']
-        dist = dados['dist']
-        pares = dados['pares']
-        
-        # Análise baseada em estatísticas
-        status_soma = "✅" if 180 <= soma <= 210 else "⚠️"
-        status_repet = "✅" if 8 <= repetidas <= 10 else "⚠️"
-        status_dist = "✅" if dist == "5B | 5M | 5A" else "⚠️"
-        status_pares = "✅" if 6 <= pares <= 9 else "⚠️"
-        
+        soma = dados["soma"]
+        repetidas = dados["repetidas"]
+        dist = dados["dist"]
+        pares = dados["pares"]
+
+        ok_soma = 180 <= soma <= 210
+        ok_rep = 8 <= repetidas <= 10
+        ok_dist = dist == "5B | 5M | 5A"
+        ok_pares = 6 <= pares <= 9
+
+        score = sum([ok_soma, ok_rep, ok_dist, ok_pares])
+
+        decisao = (
+            "ALTA PROBABILIDADE" if score >= 3 else
+            "PROBABILIDADE MÉDIA" if score == 2 else
+            "BAIXA PROBABILIDADE"
+        )
+
         return f"""
-        DECISÃO: ANÁLISE LOCAL (APIs indisponíveis)
-        
-        ANÁLISE TÉCNICA:
-        Soma {soma} {status_soma} | Repetidas {repetidas} {status_repet}
-        Distribuição {dist} {status_dist} | Pares {pares} {status_pares}
-        
-        PADRÕES IDENTIFICADOS:
-        • Soma {'dentro' if 180 <= soma <= 210 else 'fora'} da faixa ideal
-        • {'Adequada' if 8 <= repetidas <= 10 else 'Inadequada'} repetição do anterior
-        • Distribuição {dist}
-        
-        RECOMENDAÇÃO: {'Jogo equilibrado' if status_soma == '✅' and status_repet == '✅' else 'Analisar com cautela'}
-        """
+DECISÃO: {decisao}
+
+ANÁLISE TÉCNICA:
+Soma {soma} | Repetidas {repetidas} | Distribuição {dist} | Pares {pares}
+
+PADRÕES IDENTIFICADOS:
+• Soma {'adequada' if ok_soma else 'fora da faixa'}
+• Repetição {'adequada' if ok_rep else 'fora do padrão'}
+• Distribuição {'equilibrada' if ok_dist else 'irregular'}
+• Pares {'equilibrados' if ok_pares else 'desbalanceados'}
+
+RECOMENDAÇÃO:
+{'Manter estratégia atual' if score >= 3 else 'Ajustar composição do jogo'}
+"""

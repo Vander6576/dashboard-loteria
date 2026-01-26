@@ -1,40 +1,28 @@
-# app.py - VERSÃO CORRIGIDA E COMPLETA
-import streamlit as st
-import pandas as pd
-import plotly.express as px
+# =====================================================
+# LotoAnalytica PRO v18 - Streamlit Cloud Ready
+# =====================================================
+
+# ============================
+# IMPORTAÇÕES
+# ============================
+import os
+from pathlib import Path
 from datetime import datetime
 
-# Importações dos nossos módulos organizados
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+# Importações internas
 from config import settings
 from services import LoteriaAPI, AIEngine, JogoGenerator, KPICalculator
 from utils import Formatters, validar_dezenas
 from assets.components import UIComponents
-from services.chat_analyzer import ChatAnalyzer  # Novo módulo
+from services.chat_analyzer import ChatAnalyzer
 
-# No início do app.py, após as importações, adicione:
-def inicializar_sistema():
-    """Inicializa componentes do sistema"""
-    # Cria pasta data se não existir
-    import os
-    os.makedirs("data", exist_ok=True)
-    
-    # Verifica/cria arquivo de histórico
-    historico_path = "data/historico.csv"
-    if not os.path.exists(historico_path):
-        import pandas as pd
-        pd.DataFrame(columns=['concurso', 'data', 'dezenas']).to_csv(
-            historico_path, index=False, encoding='utf-8'
-        )
-        print("✅ Histórico inicializado")
-
-# Chama a função de inicialização
-inicializar_sistema()
-
-# ============================================
-# INICIALIZAÇÃO
-# ============================================
-
-# Configuração da página
+# ============================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================
 st.set_page_config(
     page_title="LotoAnalytica PRO v18",
     page_icon="🎱",
@@ -42,14 +30,61 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Carregar CSS
-try:
-    with open("assets/styles.css", "r", encoding="utf-8") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except:
-    st.warning("CSS não carregado. Usando estilo padrão.")
+# ============================
+# PATHS (Cloud Safe)
+# ============================
+BASE_DIR = Path(__file__).parent
+DATA_DIR = BASE_DIR / "data"
+ASSETS_DIR = BASE_DIR / "assets"
 
-# Inicializar serviços (com cache no session_state)
+# ============================
+# FUNÇÃO DE INICIALIZAÇÃO
+# ============================
+def inicializar_sistema():
+    """Inicializa componentes do sistema e estado da sessão"""
+    # Garante que a pasta de dados existe
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    # Cria arquivo de histórico se não existir
+    historico_path = DATA_DIR / "historico.csv"
+    if not historico_path.exists():
+        pd.DataFrame(columns=['concurso', 'data', 'dezenas']).to_csv(
+            historico_path, index=False, encoding='utf-8'
+        )
+        print("✅ Histórico inicializado")
+
+    # ============================
+# INICIALIZAÇÃO DO SESSION_STATE
+# ============================
+if "dezenas" not in st.session_state:
+    st.session_state.dezenas = []   # lista de dezenas sorteadas
+if "concurso" not in st.session_state:
+    st.session_state.concurso = None   # número do concurso atual
+if "anteriores" not in st.session_state:
+    st.session_state.anteriores = []   # dezenas do concurso anterior
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []  # histórico do chat
+
+
+# Executa inicialização logo no início do app
+inicializar_sistema()
+
+# ============================
+# CARREGAR CSS
+# ============================
+def carregar_css(path: Path):
+    """Carrega arquivo CSS externo"""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning("CSS não carregado. Usando estilo padrão.")
+
+carregar_css(ASSETS_DIR / "styles.css")
+
+# ============================
+# INICIALIZAR SERVIÇOS
+# ============================
 def inicializar_servicos():
     """Inicializa e cacheia os serviços"""
     if 'servicos' not in st.session_state:
@@ -60,7 +95,7 @@ def inicializar_servicos():
             'kpi': KPICalculator(),
             'ui': UIComponents(),
             'formatador': Formatters(),
-            'chat': ChatAnalyzer()  # Novo serviço
+            'chat': ChatAnalyzer()
         }
     return st.session_state.servicos
 
@@ -911,35 +946,3 @@ else:
 # RODAPÉ
 # ============================================
 
-st.markdown("---")
-col_rodape1, col_rodape2, col_rodape3 = st.columns(3)
-
-with col_rodape1:
-    st.markdown("**LotoAnalytica PRO v18**")
-    st.caption("Desenvolvido por Vander Rodrigues")
-    st.caption("© 2024 - Análise Estatística Avançada")
-
-with col_rodape2:
-    st.markdown("**📊 Método 5-5-5**")
-    st.caption("Distribuição equilibrada para melhor cobertura")
-    st.caption("Sistema baseado em estatística")
-
-with col_rodape3:
-    if 'dez' in st.session_state:
-        df_historico = api.carregar_historico()
-        total_concursos = len(df_historico) if not df_historico.empty else 0
-        st.caption(f"📁 Histórico: {total_concursos} concursos")
-        st.caption(f"🎯 Análise: Concurso #{st.session_state.conc}")
-    else:
-        st.caption("🎱 Pronto para análise")
-        st.caption("Carregue dados para começar")
-
-# Linha de créditos adicionais
-st.markdown("---")
-st.caption("✨ Sistema desenvolvido para análise técnica de loterias - v1.0")
-# ============================================
-# FUNÇÃO PRINCIPAL
-# ============================================
-
-if __name__ == "__main__":
-    pass
